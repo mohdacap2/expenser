@@ -26,6 +26,19 @@
       }
     }
   </script>
+
+  <script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./pwabuilder-sw.js")
+        .then((reg) => console.log("Service Worker registered!", reg))
+        .catch((err) => console.log("Service Worker registration failed: ", err));
+    });
+  }
+  </script>
+
+
+  
   <style>
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #020617; }
