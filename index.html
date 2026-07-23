@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expenser Pro - Advanced Financial Tracker</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #020617; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white pb-16">
+
+  <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl text-white shadow-lg shadow-indigo-500/20">
+          <i data-lucide="line-chart" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-white">Expenser<span class="text-indigo-400">Pro</span></h1>
+            <span data-i18n="badge" class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-semibold">Smart OCR</span>
+          </div>
+          <p data-i18n="app_sub" class="text-[11px] text-slate-400">Intelligent Expense & Document Hub</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <select id="langSelector" onchange="changeLanguage(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer transition mr-2">
+          <option value="en">EN</option>
+          <option value="bm">BM</option>
+        </select>
+        
+        <button onclick="exportCSV()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-300 transition">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-400"></i> <span data-i18n="btn_export">Export CSV</span>
+        </button>
+        <button onclick="exportBackup()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-300 transition">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-400"></i> <span data-i18n="btn_backup">Backup JSON</span>
+        </button>
+        <label class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-300 transition cursor-pointer">
+          <i data-lucide="upload" class="w-3.5 h-3.5 text-amber-400"></i> <span data-i18n="btn_restore">Restore</span>
+          <input type="file" accept=".json" class="hidden" onchange="importBackup(event)">
+        </label>
+        <button onclick="clearAllData()" class="p-2 sm:px-3 sm:py-1.5 text-xs font-medium bg-red-950/30 border border-red-900/40 text-red-400 hover:bg-red-900/40 rounded-lg transition flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> <span class="hidden sm:inline" data-i18n="btn_reset">Reset</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <p data-i18n="total_income" class="text-xs text-slate-400 font-medium">Total Income</p>
+          <span class="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><i data-lucide="arrow-down-left" class="w-4 h-4"></i></span>
+        </div>
+        <h2 id="totalIncome" class="text-2xl font-bold text-white mt-2">RM 0.00</h2>
+        <p data-i18n="inflow" class="text-[11px] text-emerald-400/80 mt-1 flex items-center gap-1">Inflow recorded</p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <p data-i18n="total_expenses" class="text-xs text-slate-400 font-medium">Total Expenses</p>
+          <span class="p-2 bg-rose-500/10 text-rose-400 rounded-xl"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
+        </div>
+        <h2 id="totalSpent" class="text-2xl font-bold text-white mt-2">RM 0.00</h2>
+        <p data-i18n="outflow" class="text-[11px] text-rose-400/80 mt-1">Outflow recorded</p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm shadow-sm">
+        <div class="flex justify-between items-start">
+          <p data-i18n="target_budget" class="text-xs text-slate-400 font-medium">Target Budget</p>
+          <span class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><i data-lucide="target" class="w-4 h-4"></i></span>
+        </div>
+        <div class="flex items-center gap-1 mt-1">
+          <span class="text-xl font-bold text-indigo-400">RM</span>
+          <input type="number" step="0.01" id="budgetInput" placeholder="0.00" oninput="saveBudgetAndRender()" onchange="saveBudgetAndRender()" class="text-2xl font-bold text-indigo-400 bg-transparent w-full focus:outline-none border-b border-transparent focus:border-indigo-500">
+        </div>
+        <p data-i18n="click_edit" class="text-[11px] text-slate-400 mt-1">Type to update target</p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm shadow-sm">
+        <div class="flex justify-between items-start">
+          <p data-i18n="budget_status" class="text-xs text-slate-400 font-medium">Budget Status</p>
+          <span id="statusIcon" class="p-2 bg-slate-800 text-slate-400 rounded-xl"><i data-lucide="wallet" class="w-4 h-4"></i></span>
+        </div>
+        <h2 id="remainingBudget" class="text-2xl font-bold text-slate-200 mt-2">RM 0.00</h2>
+        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+          <div id="budgetProgressBar" class="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <section class="lg:col-span-5 space-y-6">
+        <div class="p-6 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-sm space-y-5">
+          
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-400"></i> <span data-i18n="record_tx">Record Transaction</span>
+            </h2>
+            <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button type="button" id="btnTypeExpense" onclick="setTxType('Expense')" data-i18n="btn_expense" class="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition">Expense</button>
+              <button type="button" id="btnTypeIncome" onclick="setTxType('Income')" data-i18n="btn_income" class="px-3 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition">Income</button>
+            </div>
+          </div>
+
+          <div id="dropZone" class="border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 text-center cursor-pointer transition bg-slate-950/40 relative group"
+               ondragenter="handleDragEnter(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf" onchange="handleFileSelect(event)">
+            <div class="flex flex-col items-center space-y-2 pointer-events-none">
+              <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl group-hover:scale-110 transition">
+                <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+              </div>
+              <div class="space-y-0.5">
+                <p data-i18n="smart_scan" class="text-xs font-semibold text-white">Upload Bill, Invoice or Receipt</p>
+                <p data-i18n="drop_receipt" class="text-[11px] text-slate-400">Drag & drop PDF or image file here, or click to browse</p>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">Auto-extracts amount & details</span>
+            </div>
+          </div>
+
+          <div id="filePreviewContainer" class="hidden relative p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div id="filePreviewThumb" class="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-400">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <p id="fileNameDisplay" class="text-xs font-medium text-white truncate max-w-[200px]">document.pdf</p>
+                <p id="fileStatusDisplay" class="text-[10px] text-emerald-400">Ready for parsing</p>
+              </div>
+            </div>
+            <button type="button" onclick="removeFile()" class="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <form id="expenseForm" onsubmit="addTransaction(event)" class="space-y-4">
+            <div>
+              <label data-i18n="merchant" class="block text-xs font-medium text-slate-400 mb-1">Merchant / Source</label>
+              <input type="text" id="title" required placeholder="e.g. CelcomDigi, Maxis, Unifi, Astro, Lotus's" 
+                     class="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-100 placeholder:text-slate-600">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label data-i18n="amount" class="block text-xs font-medium text-slate-400 mb-1">Amount (RM)</label>
+                <input type="number" step="0.01" id="amount" required placeholder="0.00" 
+                       class="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-100 placeholder:text-slate-600">
+              </div>
+              <div>
+                <label data-i18n="category" class="block text-xs font-medium text-slate-400 mb-1">Category</label>
+                <select id="category" required class="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+                  <option value="Food & Dining" data-i18n-opt="cat_food">🍜 Food & Dining</option>
+                  <option value="Groceries" data-i18n-opt="cat_groceries">🛒 Groceries</option>
+                  <option value="Transport & Fuel" data-i18n-opt="cat_transport">🚗 Transport & Fuel</option>
+                  <option value="Utilities & Bills" data-i18n-opt="cat_utilities">💡 Utilities & Bills</option>
+                  <option value="Shopping" data-i18n-opt="cat_shopping">🛍️ Shopping</option>
+                  <option value="Entertainment" data-i18n-opt="cat_entertainment">🎬 Entertainment</option>
+                  <option value="Salary / Income" data-i18n-opt="cat_salary">💰 Salary / Income</option>
+                  <option value="Other" data-i18n-opt="cat_other">📦 Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label data-i18n="date" class="block text-xs font-medium text-slate-400 mb-1">Date</label>
+              <input type="date" id="date" required 
+                     class="w-full bg-slate-950 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+            </div>
+
+            <button type="submit" data-i18n="btn_save" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium text-sm rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i> Save Transaction Record
+            </button>
+          </form>
+
+        </div>
+      </section>
+
+      <section class="lg:col-span-7 space-y-6">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-sm">
+            <h3 data-i18n="chart_category" class="text-xs font-semibold text-slate-300 mb-3">Expenses by Category</h3>
+            <div class="h-48 flex items-center justify-center">
+              <canvas id="categoryChart"></canvas>
+            </div>
+          </div>
+          <div class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-sm">
+            <h3 data-i18n="chart_trend" class="text-xs font-semibold text-slate-300 mb-3">Monthly Cashflow Trend</h3>
+            <div class="h-48 flex items-center justify-center">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-sm space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <h2 data-i18n="recent_history" class="text-base font-semibold text-white flex items-center gap-2">
+              <i data-lucide="history" class="w-4 h-4 text-indigo-400"></i> Transaction History
+            </h2>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <input type="text" id="searchInput" oninput="renderExpenses()" placeholder="Search description..." 
+                     class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 w-full sm:w-44">
+              <select id="filterCategory" onchange="renderExpenses()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 focus:outline-none">
+                <option value="All" data-i18n-opt="cat_all">All Categories</option>
+                <option value="Food & Dining" data-i18n-opt="cat_food">Food & Dining</option>
+                <option value="Groceries" data-i18n-opt="cat_groceries">Groceries</option>
+                <option value="Transport & Fuel" data-i18n-opt="cat_transport">Transport / Fuel</option>
+                <option value="Utilities & Bills" data-i18n-opt="cat_utilities">Utilities & Bills</option>
+                <option value="Shopping" data-i18n-opt="cat_shopping">Shopping</option>
+                <option value="Entertainment" data-i18n-opt="cat_entertainment">Entertainment</option>
+                <option value="Salary / Income" data-i18n-opt="cat_salary">Salary / Income</option>
+                <option value="Other" data-i18n-opt="cat_other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="expenseList" class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1"></div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <div id="receiptModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl relative">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-semibold text-white">Attached Receipt / Document</h3>
+        <button onclick="closeReceiptModal()" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div id="receiptModalContent" class="flex justify-center max-h-[60vh] overflow-auto bg-slate-950 p-3 rounded-xl border border-slate-800"></div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('dragover', function(e) { e.preventDefault(); }, false);
+    window.addEventListener('drop', function(e) { e.preventDefault(); }, false);
+
+    const translations = {
+      en: {
+        badge: "Smart OCR", app_sub: "Intelligent Expense & Document Hub", btn_export: "Export CSV", btn_backup: "Backup JSON", btn_restore: "Restore", btn_reset: "Reset",
+        total_income: "Total Income", inflow: "Inflow recorded", total_expenses: "Total Expenses", outflow: "Outflow recorded",
+        target_budget: "Target Budget", click_edit: "Type to update target", budget_status: "Budget Status", record_tx: "Record Transaction",
+        btn_expense: "Expense", btn_income: "Income", smart_scan: "Upload Bill, Invoice or Receipt", drop_receipt: "Drag & drop PDF or image file here, or click to browse",
+        merchant: "Merchant / Source", ph_merchant: "e.g. CelcomDigi, Maxis, Unifi, Astro", amount: "Amount (RM)", category: "Category", date: "Date", btn_save: "Save Transaction Record",
+        chart_category: "Expenses by Category", chart_trend: "Monthly Cashflow Trend", recent_history: "Transaction History",
+        cat_all: "All Categories", cat_food: "🍜 Food & Dining", cat_groceries: "🛒 Groceries", cat_transport: "🚗 Transport & Fuel",
+        cat_utilities: "💡 Utilities & Bills", cat_shopping: "🛍️ Shopping", cat_entertainment: "🎬 Entertainment", cat_salary: "💰 Salary / Income", cat_other: "📦 Other",
+        alert_restored: "Backup restored successfully!", alert_invalid: "Invalid backup file.", confirm_reset: "Reset all Expenser Pro transaction records and local data?"
+      },
+      bm: {
+        badge: "OCR Pintar", app_sub: "Pusat Dokumen & Perbelanjaan Pintar", btn_export: "Eksport CSV", btn_backup: "Sandaran JSON", btn_restore: "Pulihkan", btn_reset: "Set Semula",
+        total_income: "Jumlah Pendapatan", inflow: "Aliran masuk direkod", total_expenses: "Jumlah Perbelanjaan", outflow: "Aliran keluar direkod",
+        target_budget: "Sasaran Belanjawan", click_edit: "Taip untuk kemaskini sasaran", budget_status: "Baki Belanjawan", record_tx: "Rekod Transaksi",
+        btn_expense: "Perbelanjaan", btn_income: "Pendapatan", smart_scan: "Muat Naik Bil, Invois atau Resit", drop_receipt: "Seret & lepas fail PDF atau imej di sini, atau klik untuk cari",
+        merchant: "Peniaga / Sumber", ph_merchant: "cth. CelcomDigi, Maxis, Unifi, Astro", amount: "Jumlah (RM)", category: "Kategori", date: "Tarikh", btn_save: "Simpan Rekod Transaksi",
+        chart_category: "Perbelanjaan mengikut Kategori", chart_trend: "Trend Aliran Tunai Bulanan", recent_history: "Sejarah Transaksi",
+        cat_all: "Semua Kategori", cat_food: "🍜 Makanan & Jamuan", cat_groceries: "🛒 Barangan Dapur", cat_transport: "🚗 Pengangkutan & Minyak",
+        cat_utilities: "💡 Utiliti & Bil", cat_shopping: "🛍️ Membeli-belah", cat_entertainment: "🎬 Hiburan", cat_salary: "💰 Gaji / Pendapatan", cat_other: "📦 Lain-lain",
+        alert_restored: "Sandaran berjaya dipulihkan!", alert_invalid: "Fail sandaran tidak sah.", confirm_reset: "Tetapkan semula semua rekod transaksi dan data tempatan?"
+      }
+    };
+
+    let currentLang = 'en';
+    let expenses = JSON.parse(localStorage.getItem('expenser_pro_expenses')) || [];
+    let savedBudget = localStorage.getItem('expenser_pro_budget') || '';
+    let currentFileType = 'Expense';
+    let currentFileData = null;
+    let categoryChart = null;
+    let trendChart = null;
+
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    if (savedBudget !== '') { document.getElementById('budgetInput').value = savedBudget; }
+
+    function changeLanguage(lang) {
+      currentLang = lang;
+      const t = translations[lang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) el.textContent = t[key];
+      });
+      document.querySelectorAll('[data-i18n-opt]').forEach(el => {
+        const key = el.getAttribute('data-i18n-opt');
+        if (t[key]) el.textContent = t[key];
+      });
+      renderExpenses();
+      renderCharts();
+    }
+
+    function setTxType(type) {
+      currentFileType = type;
+      const btnExp = document.getElementById('btnTypeExpense');
+      const btnInc = document.getElementById('btnTypeIncome');
+      const catSelect = document.getElementById('category');
+
+      if (type === 'Expense') {
+        btnExp.className = "px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition";
+        btnInc.className = "px-3 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition";
+        catSelect.value = "Utilities & Bills";
+      } else {
+        btnInc.className = "px-3 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition";
+        btnExp.className = "px-3 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition";
+        catSelect.value = "Salary / Income";
+      }
+    }
+
+    function handleDragEnter(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('border-indigo-500', 'bg-indigo-500/5'); }
+    function handleDragOver(e) { e.preventDefault(); }
+    function handleDragLeave(e) { e.preventDefault(); document.getElementById('dropZone').classList.remove('border-indigo-500', 'bg-indigo-500/5'); }
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('dropZone').classList.remove('border-indigo-500', 'bg-indigo-500/5');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        processUploadedFile(e.dataTransfer.files[0]);
+      }
+    }
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files[0]) {
+        processUploadedFile(e.target.files[0]);
+      }
+    }
+
+    async function runTesseractDualLang(imageSource) {
+      try {
+        const workerEn = await Tesseract.createWorker('eng');
+        const retEn = await workerEn.recognize(imageSource);
+        await workerEn.terminate();
+        let text = retEn.data.text || "";
+
+        if (text.length < 30 || !/(rm|\d+\.\d{2})/i.test(text)) {
+          const workerMs = await Tesseract.createWorker('msa');
+          const retMs = await workerMs.recognize(imageSource);
+          await workerMs.terminate();
+          if (retMs.data.text.length > text.length) {
+            text = retMs.data.text;
+          }
+        }
+        return text;
+      } catch (err) {
+        console.error("Tesseract OCR error:", err);
+        return "";
+      }
+    }
+
+    async function processUploadedFile(file) {
+      const nameDisp = document.getElementById('fileNameDisplay');
+      const statusDisp = document.getElementById('fileStatusDisplay');
+      const container = document.getElementById('filePreviewContainer');
+
+      nameDisp.textContent = file.name;
+      statusDisp.textContent = "Parsing document...";
+      statusDisp.className = "text-[10px] text-amber-400 animate-pulse";
+      container.classList.remove('hidden');
+
+      try {
+        let extractedText = "";
+        if (file.type === 'application/pdf') {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            extractedText += textContent.items.map(item => item.str).join(' ') + '\n';
+          }
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            currentFileData = { type: 'pdf', dataUri: e.target.result, name: file.name };
+          };
+          reader.readAsDataURL(file);
+        } else {
+          const reader = new FileReader();
+          reader.onload = async function(e) {
+            const dataUri = e.target.result;
+            currentFileData = { type: 'image', dataUri: dataUri, name: file.name };
+            extractedText = await runTesseractDualLang(dataUri);
+            parseOCRResults(extractedText);
+            statusDisp.textContent = "Parsed successfully!";
+            statusDisp.className = "text-[10px] text-emerald-400";
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        if (file.type === 'application/pdf') {
+          parseOCRResults(extractedText);
+          statusDisp.textContent = "PDF Parsed successfully!";
+          statusDisp.className = "text-[10px] text-emerald-400";
+        }
+      } catch (err) {
+        console.error(err);
+        statusDisp.textContent = "Parsing failed";
+        statusDisp.className = "text-[10px] text-rose-400";
+      }
+    }
+
+    function parseOCRResults(text) {
+      if (!text) return;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const fullText = text;
+      const lowerFullText = fullText.toLowerCase();
+
+      const knownBillers = [
+        { regex: /celcomdigi|celcom|digi/i, name: 'CelcomDigi', category: 'Utilities & Bills' },
+        { regex: /maxis|hotlink/i, name: 'Maxis', category: 'Utilities & Bills' },
+        { regex: /unifi|tm net|telekom malaysia/i, name: 'Unifi', category: 'Utilities & Bills' },
+        { regex: /tnb|tenaga nasional/i, name: 'Tenaga Nasional (TNB)', category: 'Utilities & Bills' },
+        { regex: /air selangor|syabas/i, name: 'Air Selangor', category: 'Utilities & Bills' },
+        { regex: /indah water|iwk/i, name: 'Indah Water (IWK)', category: 'Utilities & Bills' }
+      ];
+
+      let matchedBiller = null;
+      for (const biller of knownBillers) {
+        if (biller.regex.test(lowerFullText)) {
+          matchedBiller = biller;
+          break;
+        }
+      }
+
+      if (matchedBiller) {
+        document.getElementById('title').value = matchedBiller.name;
+        document.getElementById('category').value = matchedBiller.category;
+      } else {
+        let detectedVendor = '';
+        if (lines.length > 0) {
+          let cleanHeader = lines[0].replace(/[^a-zA-Z0-9\s&'-]/g, '').trim();
+          if (cleanHeader.length > 2) detectedVendor = cleanHeader.substring(0, 30);
+        }
+        if (detectedVendor) document.getElementById('title').value = detectedVendor;
+        
+        let category = "Other";
+        if (/food|restaurant|restoran|kedai makan|cafe|mamak|starbucks|zus|mcdonald|kfc|boba|grabfood|foodpanda|dining|bakery|coffee|tealive|kopitiam/i.test(lowerFullText)) {
+          category = 'Food & Dining';
+        } else if (/grocer|supermarket|mydin|aeon|jaya grocer|lotus|speed99|99 speedmart|tesco|nsk/i.test(lowerFullText)) {
+          category = 'Groceries';
+        } else if (/petrol|shell|petronas|petron|caltex|bhp|parking|toll|touch 'n go|grab|maxim|airasia/i.test(lowerFullText)) {
+          category = 'Transport & Fuel';
+        } else if (/bill|utility|celcom|maxis|unifi|digi|astro|tnb|air selangor/i.test(lowerFullText)) {
+          category = 'Utilities & Bills';
+        } else if (/shopee|lazada|zara|h&m|uniqlo|shopping|mall/i.test(lowerFullText)) {
+          category = 'Shopping';
+        } else if (/cinema|movie|gsc|tgv|netflix|spotify|entertainment/i.test(lowerFullText)) {
+          category = 'Entertainment';
+        }
+        document.getElementById('category').value = category;
+      }
+
+      let extractedAmount = null;
+      const amountKeywords = [
+        /total current charges/i,
+        /total amount payable/i,
+        /amount payable/i,
+        /total bill/i,
+        /total due/i,
+        /current charges/i,
+        /total charges/i,
+        /balance due/i,
+        /grand total/i,
+        /total\s*[:=]?/i
+      ];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const kw of amountKeywords) {
+          if (kw.test(line)) {
+            const matchCurr = line.match(/(?:RM\s*)?(\d{1,4}[,.]\d{2})/i) || line.match(/(?:RM\s*)?(\d{2,5})/i);
+            if (matchCurr) {
+              let val = parseFloat(matchCurr[1].replace(',', '.'));
+              if (!isNaN(val) && val > 0 && val < 100000) {
+                extractedAmount = val;
+                break;
+              }
+            }
+            for (let j = i + 1; j <= Math.min(i + 2, lines.length - 1); j++) {
+              const nextLine = lines[j];
+              const matchNext = nextLine.match(/(?:RM\s*)?(\d{1,4}[,.]\d{2})/i) || nextLine.match(/(?:RM\s*)?(\d{2,5})/i);
+              if (matchNext) {
+                let val = parseFloat(matchNext[1].replace(',', '.'));
+                if (!isNaN(val) && val > 0 && val < 100000) {
+                  extractedAmount = val;
+                  break;
+                }
+              }
+            }
+          }
+          if (extractedAmount !== null) break;
+        }
+        if (extractedAmount !== null) break;
+      }
+
+      if (extractedAmount === null) {
+        const rmMatches = fullText.match(/RM\s*(\d{1,4}[,.]\d{2})/gi);
+        if (rmMatches && rmMatches.length > 0) {
+          const lastRM = rmMatches[rmMatches.length - 1];
+          const numMatch = lastRM.match(/(\d{1,4}[,.]\d{2})/);
+          if (numMatch) {
+            extractedAmount = parseFloat(numMatch[1].replace(',', '.'));
+          }
+        }
+      }
+
+      if (extractedAmount !== null) {
+        document.getElementById('amount').value = extractedAmount.toFixed(2);
+      }
+
+      const dateMatch = fullText.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+      if (dateMatch) {
+        let day = dateMatch[1].padStart(2, '0');
+        let month = dateMatch[2].padStart(2, '0');
+        let year = dateMatch[3];
+        if (year.length === 2) year = '20' + year;
+        const formattedDate = `${year}-${month}-${day}`;
+        if (!isNaN(new Date(formattedDate).getTime())) {
+          document.getElementById('date').value = formattedDate;
+        }
+      }
+    }
+
+    function removeFile() {
+      currentFileData = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('filePreviewContainer').classList.add('hidden');
+    }
+
+    function addTransaction(e) {
+      e.preventDefault();
+      const title = document.getElementById('title').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+      const category = document.getElementById('category').value;
+      const date = document.getElementById('date').value;
+
+      if (!title || isNaN(amount) || !date) return;
+
+      const newTx = {
+        id: Date.now(),
+        type: currentFileType,
+        title,
+        amount,
+        category,
+        date,
+        file: currentFileData
+      };
+
+      expenses.unshift(newTx);
+      saveAndRender();
+
+      document.getElementById('expenseForm').reset();
+      document.getElementById('date').value = new Date().toISOString().split('T')[0];
+      removeFile();
+      setTxType('Expense');
+    }
+
+    function deleteTransaction(id) {
+      expenses = expenses.filter(item => item.id !== id);
+      saveAndRender();
+    }
+
+    function saveBudgetAndRender() {
+      const bInput = document.getElementById('budgetInput').value;
+      savedBudget = bInput;
+      localStorage.setItem('expenser_pro_budget', bInput);
+      updateDashboard();
+    }
+
+    function saveAndRender() {
+      localStorage.setItem('expenser_pro_expenses', JSON.stringify(expenses));
+      updateDashboard();
+      renderExpenses();
+      renderCharts();
+    }
+
+    function updateDashboard() {
+      let totalInc = 0;
+      let totalExp = 0;
+
+      expenses.forEach(e => {
+        if (e.type === 'Income') totalInc += e.amount;
+        else totalExp += e.amount;
+      });
+
+      document.getElementById('totalIncome').textContent = `RM ${totalInc.toFixed(2)}`;
+      document.getElementById('totalSpent').textContent = `RM ${totalExp.toFixed(2)}`;
+
+      const budgetVal = parseFloat(savedBudget) || 0;
+      const remEl = document.getElementById('remainingBudget');
+      const barEl = document.getElementById('budgetProgressBar');
+      const statusIcon = document.getElementById('statusIcon');
+
+      if (budgetVal > 0) {
+        const remaining = budgetVal - totalExp;
+        const pct = Math.min(Math.max((totalExp / budgetVal) * 100, 0), 100);
+        remEl.textContent = `RM ${remaining.toFixed(2)}`;
+        barEl.style.width = `${pct}%`;
+
+        if (pct >= 100) {
+          barEl.className = "bg-rose-500 h-1.5 rounded-full transition-all duration-300";
+          statusIcon.className = "p-2 bg-rose-500/10 text-rose-400 rounded-xl";
+          statusIcon.innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4"></i>';
+        } else if (pct >= 80) {
+          barEl.className = "bg-amber-500 h-1.5 rounded-full transition-all duration-300";
+          statusIcon.className = "p-2 bg-amber-500/10 text-amber-400 rounded-xl";
+          statusIcon.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i>';
+        } else {
+          barEl.className = "bg-emerald-500 h-1.5 rounded-full transition-all duration-300";
+          statusIcon.className = "p-2 bg-emerald-500/10 text-emerald-400 rounded-xl";
+          statusIcon.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i>';
+        }
+      } else {
+        remEl.textContent = `RM 0.00`;
+        barEl.style.width = `0%`;
+        statusIcon.className = "p-2 bg-slate-800 text-slate-400 rounded-xl";
+        statusIcon.innerHTML = '<i data-lucide="wallet" class="w-4 h-4"></i>';
+      }
+      lucide.createIcons();
+    }
+
+    function renderExpenses() {
+      const listEl = document.getElementById('expenseList');
+      const searchTxt = document.getElementById('searchInput').value.toLowerCase();
+      const filterCat = document.getElementById('filterCategory').value;
+
+      const filtered = expenses.filter(item => {
+        const matchSearch = item.title.toLowerCase().includes(searchTxt);
+        const matchCat = filterCat === 'All' || item.category === filterCat;
+        return matchSearch && matchCat;
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="p-8 text-center text-slate-500 text-xs">No transaction records found.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(item => {
+        const isInc = item.type === 'Income';
+        return `
+          <div class="flex items-center justify-between p-3.5 bg-slate-950/60 border border-slate-800/80 rounded-xl hover:border-slate-700 transition">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl ${isInc ? 'bg-emerald-500/10 text-emerald-400' : 'bg-indigo-500/10 text-indigo-400'}">
+                <i data-lucide="${isInc ? 'arrow-down-left' : 'receipt'}" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-white">${escapeHtml(item.title)}</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-[10px] text-slate-400">${item.date}</span>
+                  <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-slate-400 border border-slate-800">${escapeHtml(item.category)}</span>
+                  ${item.file ? `<button onclick="viewReceipt(${item.id})" class="text-[10px] text-indigo-400 hover:underline flex items-center gap-0.5"><i data-lucide="paperclip" class="w-3 h-3"></i> View</button>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold ${isInc ? 'text-emerald-400' : 'text-slate-100'}">
+                ${isInc ? '+' : '-'}RM ${item.amount.toFixed(2)}
+              </span>
+              <button onclick="deleteTransaction(${item.id})" class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-900 rounded-lg transition">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function viewReceipt(id) {
+      const item = expenses.find(e => e.id === id);
+      if (!item || !item.file) return;
+
+      const modal = document.getElementById('receiptModal');
+      const content = document.getElementById('receiptModalContent');
+
+      if (item.file.type === 'image') {
+        content.innerHTML = `<img src="${item.file.dataUri}" class="max-w-full rounded-lg">`;
+      } else {
+        content.innerHTML = `<iframe src="${item.file.dataUri}" class="w-full h-[50vh] rounded-lg border-0"></iframe>`;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('receiptModal').classList.add('hidden');
+    }
+
+    function renderCharts() {
+      const catData = {};
+      expenses.filter(e => e.type !== 'Income').forEach(e => {
+        catData[e.category] = (catData[e.category] || 0) + e.amount;
+      });
+
+      const catLabels = Object.keys(catData);
+      const catValues = Object.values(catData);
+
+      if (categoryChart) categoryChart.destroy();
+      const ctxCat = document.getElementById('categoryChart').getContext('2d');
+      categoryChart = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels.length ? catLabels : ['No Data'],
+          datasets: [{
+            data: catValues.length ? catValues : [1],
+            backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#64748b'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } } }
+        }
+      });
+
+      const monthData = {};
+      expenses.forEach(e => {
+        const month = e.date.substring(0, 7);
+        if (!monthData[month]) monthData[month] = { income: 0, expense: 0 };
+        if (e.type === 'Income') monthData[month].income += e.amount;
+        else monthData[month].expense += e.amount;
+      });
+
+      const sortedMonths = Object.keys(monthData).sort();
+      const trendLabels = sortedMonths.length ? sortedMonths : ['Current'];
+      const trendIncome = sortedMonths.length ? sortedMonths.map(m => monthData[m].income) : [0];
+      const trendExpense = sortedMonths.length ? sortedMonths.map(m => monthData[m].expense) : [0];
+
+      if (trendChart) trendChart.destroy();
+      const ctxTrend = document.getElementById('trendChart').getContext('2d');
+      trendChart = new Chart(ctxTrend, {
+        type: 'bar',
+        data: {
+          labels: trendLabels,
+          datasets: [
+            { label: 'Income', data: trendIncome, backgroundColor: '#10b981', borderRadius: 4 },
+            { label: 'Expense', data: trendExpense, backgroundColor: '#6366f1', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
+          },
+          plugins: { legend: { position: 'top', labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } } }
+        }
+      });
+    }
+
+    function exportCSV() {
+      if (expenses.length === 0) return alert('No records to export.');
+      let csv = 'ID,Type,Title,Amount,Category,Date\n';
+      expenses.forEach(e => {
+        csv += `${e.id},${e.type},"${e.title}",${e.amount},"${e.category}",${e.date}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Expenser_Pro_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+    }
+
+    function exportBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(expenses));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Expenser_Backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importBackup(e) {
+      const t = translations[currentLang];
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const importedData = JSON.parse(evt.target.result);
+          if (Array.isArray(importedData)) {
+            expenses = importedData;
+            saveAndRender();
+            alert(t.alert_restored);
+          }
+        } catch(err) { alert(t.alert_invalid); }
+      };
+      reader.readAsText(file);
+    }
+
+    function clearAllData() {
+      const t = translations[currentLang];
+      if (confirm(t.confirm_reset)) {
+        expenses = [];
+        localStorage.removeItem('expenser_pro_budget');
+        localStorage.removeItem('expenser_pro_expenses');
+        document.getElementById('budgetInput').value = '';
+        savedBudget = '';
+        saveAndRender();
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    saveAndRender();
+  </script>
+</body>
+</html>
