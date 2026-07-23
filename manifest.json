@@ -11,5 +11,19 @@
   "categories": [
     "finance"
   ],
+
+
+"icons": [
+  {
+      "src": "Expenser.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+  },
+  
+]
+
+
+
   
 }
