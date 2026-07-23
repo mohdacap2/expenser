@@ -2,10 +2,10 @@
   "background_color": "#ffffff",
   "dir": "ltr",
   "display": "standalone",
-  "name": "mohdacap2.github",
+  "name": "Expenser",
   "orientation": "any",
   "scope": "/",
-  "short_name": "mohdacap2.github",
+  "short_name": "Expenser",
   "start_url": "/",
   "theme_color": "#ffffff",
   "categories": [
